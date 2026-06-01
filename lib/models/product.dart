@@ -32,6 +32,27 @@ class Product {
     );
   }
 
+  Product copyWith({
+    String? name,
+    String? subtitle,
+    int? price,
+    String? emoji,
+    String? categoryId,
+    bool? inStock,
+    bool? popular,
+  }) {
+    return Product(
+      id: id,
+      name: name ?? this.name,
+      subtitle: subtitle ?? this.subtitle,
+      price: price ?? this.price,
+      emoji: emoji ?? this.emoji,
+      categoryId: categoryId ?? this.categoryId,
+      inStock: inStock ?? this.inStock,
+      popular: popular ?? this.popular,
+    );
+  }
+
   Map<String, dynamic> toMap() => {
         'name': name,
         'subtitle': subtitle,

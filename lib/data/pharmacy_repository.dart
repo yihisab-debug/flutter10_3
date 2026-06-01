@@ -17,6 +17,7 @@ class PharmacyRepository {
   final List<AppOrder> _mockOrders = [];
   final List<Review> _mockReviews = [];
   final List<AppUser> _mockUsers = [];
+  final Map<String, Product> _productOverrides = {};
 
   bool get _fb => AppConfig.useFirebase;
   FirebaseFirestore get _db => FirebaseFirestore.instance;
@@ -33,13 +34,40 @@ class PharmacyRepository {
   }
 
   Future<List<Product>> fetchProducts() async {
-    if (!_fb) return MockData.products;
+    if (!_fb) {
+      return MockData.products
+          .map((p) => _productOverrides[p.id] ?? p)
+          .toList();
+    }
     try {
       final snap = await _db.collection('products').get();
       if (snap.docs.isEmpty) return MockData.products;
       return snap.docs.map((d) => Product.fromMap(d.id, d.data())).toList();
     } catch (_) {
       return MockData.products;
+    }
+  }
+
+  Future<void> updateProductPrice(String productId, int price) async {
+    if (_fb) {
+      await _db.collection('products').doc(productId).update({'price': price});
+    } else {
+      final base = _productOverrides[productId] ??
+          MockData.products.firstWhere((p) => p.id == productId);
+      _productOverrides[productId] = base.copyWith(price: price);
+    }
+  }
+
+  Future<void> setProductInStock(String productId, bool inStock) async {
+    if (_fb) {
+      await _db
+          .collection('products')
+          .doc(productId)
+          .update({'inStock': inStock});
+    } else {
+      final base = _productOverrides[productId] ??
+          MockData.products.firstWhere((p) => p.id == productId);
+      _productOverrides[productId] = base.copyWith(inStock: inStock);
     }
   }
 

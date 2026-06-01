@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import 'admin_complaints_screen.dart';
 import 'admin_couriers_screen.dart';
 import 'admin_orders_screen.dart';
+import 'admin_products_screen.dart';
 import 'admin_profile_screen.dart';
 
 class AdminShell extends StatefulWidget {
@@ -24,6 +25,7 @@ class _AdminShellState extends State<AdminShell> {
     const pages = [
       AdminComplaintsScreen(),
       AdminOrdersScreen(),
+      AdminProductsScreen(),
       AdminCouriersScreen(),
       AdminProfileScreen(),
     ];
@@ -63,6 +65,12 @@ class _AdminShellState extends State<AdminShell> {
                   color: AppColors.textSecondary),
               selectedIcon: Icon(Icons.inventory_2, color: AppColors.primary),
               label: 'Заказы',
+            ),
+            const NavigationDestination(
+              icon: Icon(Icons.medication_outlined,
+                  color: AppColors.textSecondary),
+              selectedIcon: Icon(Icons.medication, color: AppColors.primary),
+              label: 'Товары',
             ),
             const NavigationDestination(
               icon: Icon(Icons.moped_outlined, color: AppColors.textSecondary),
