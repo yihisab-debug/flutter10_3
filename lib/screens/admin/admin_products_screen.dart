@@ -96,6 +96,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                     )
                   else
                     ...visible.map((p) => Padding(
+                          key: ValueKey(p.id),
                           padding: const EdgeInsets.only(bottom: 12),
                           child: _ProductTile(product: p),
                         )),
@@ -158,29 +159,77 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
       );
 }
 
-class _ProductTile extends StatelessWidget {
+class _ProductTile extends StatefulWidget {
   final Product product;
-  const _ProductTile({required this.product});
+  const _ProductTile({super.key, required this.product});
 
-  Future<void> _editPrice(BuildContext context) async {
-    final controller =
-        TextEditingController(text: product.price.toString());
+  @override
+  State<_ProductTile> createState() => _ProductTileState();
+}
+
+class _ProductTileState extends State<_ProductTile> {
+  late bool _inStock;
+  late int _price;
+
+  @override
+  void initState() {
+    super.initState();
+    _inStock = widget.product.inStock;
+    _price = widget.product.price;
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProductTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.product.inStock != widget.product.inStock) {
+      _inStock = widget.product.inStock;
+    }
+    if (oldWidget.product.price != widget.product.price) {
+      _price = widget.product.price;
+    }
+  }
+
+  Future<void> _toggleStock(bool v) async {
+    setState(() => _inStock = v); // мгновенно меняем переключатель
+    final messenger = ScaffoldMessenger.of(context);
+    final catalog = context.read<CatalogState>();
+    try {
+      await catalog.setProductStock(widget.product.id, v);
+      messenger.showSnackBar(
+        SnackBar(
+          duration: const Duration(milliseconds: 1000),
+          content: Text(v
+              ? '${widget.product.name}: в наличии'
+              : '${widget.product.name}: нет в наличии'),
+        ),
+      );
+    } catch (e) {
+      if (mounted) setState(() => _inStock = !v); // откат
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.danger,
+          duration: const Duration(seconds: 4),
+          content: Text('Не удалось сохранить: $e'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _editPrice() async {
+    final controller = TextEditingController(text: _price.toString());
     final newPrice = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text('Цена · ${product.name}',
+        title: Text('Цена · ${widget.product.name}',
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
         content: TextField(
           controller: controller,
           autofocus: true,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: const InputDecoration(
-            labelText: 'Цена',
-            suffixText: '₸',
-          ),
+          decoration: const InputDecoration(labelText: 'Цена', suffixText: '₸'),
         ),
         actions: [
           TextButton(
@@ -188,8 +237,7 @@ class _ProductTile extends StatelessWidget {
             child: const Text('Отмена'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                minimumSize: const Size(96, 44)),
+            style: ElevatedButton.styleFrom(minimumSize: const Size(96, 44)),
             onPressed: () {
               final v = int.tryParse(controller.text.trim());
               if (v != null && v >= 0) Navigator.pop(ctx, v);
@@ -200,11 +248,27 @@ class _ProductTile extends StatelessWidget {
       ),
     );
 
-    if (newPrice != null && newPrice != product.price && context.mounted) {
-      await context.read<CatalogState>().updateProductPrice(product.id, newPrice);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Цена обновлена: $newPrice ₸')),
+    if (newPrice != null && newPrice != _price && mounted) {
+      final old = _price;
+      setState(() => _price = newPrice); // мгновенно меняем цену
+      final messenger = ScaffoldMessenger.of(context);
+      final catalog = context.read<CatalogState>();
+      try {
+        await catalog.updateProductPrice(widget.product.id, newPrice);
+        messenger.showSnackBar(
+          SnackBar(
+            duration: const Duration(milliseconds: 1000),
+            content: Text('Цена обновлена: $newPrice ₸'),
+          ),
+        );
+      } catch (e) {
+        if (mounted) setState(() => _price = old); // откат
+        messenger.showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.danger,
+            duration: const Duration(seconds: 4),
+            content: Text('Не удалось сохранить: $e'),
+          ),
         );
       }
     }
@@ -212,25 +276,25 @@ class _ProductTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final inStock = product.inStock;
+    final p = widget.product;
     return SoftCard(
       child: Opacity(
-        opacity: inStock ? 1 : 0.55,
+        opacity: _inStock ? 1 : 0.55,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Text(product.emoji, style: const TextStyle(fontSize: 28)),
+                Text(p.emoji, style: const TextStyle(fontSize: 28)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(product.name,
+                      Text(p.name,
                           style: const TextStyle(
                               fontWeight: FontWeight.w800, fontSize: 15)),
-                      Text(product.subtitle,
+                      Text(p.subtitle,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -242,19 +306,18 @@ class _ProductTile extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Divider(height: 1, color: Color(0xFFEDF0F7)),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Row(
               children: [
-                // Цена с кнопкой редактирования
                 Expanded(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () => _editPrice(context),
+                    onTap: _editPrice,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Row(
                         children: [
-                          Text('${product.price} ₸',
+                          Text('$_price ₸',
                               style: const TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 18,
@@ -267,21 +330,22 @@ class _ProductTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Статус наличия + переключатель
-                Text(
-                  inStock ? 'В наличии' : 'Нет в наличии',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: inStock ? AppColors.success : AppColors.danger,
+                Flexible(
+                  child: Text(
+                    _inStock ? 'В наличии' : 'Нет в наличии',
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _inStock ? AppColors.success : AppColors.danger,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Switch(
-                  value: inStock,
+                  value: _inStock,
                   activeColor: AppColors.success,
-                  onChanged: (v) =>
-                      context.read<CatalogState>().setProductStock(product.id, v),
+                  onChanged: _toggleStock,
                 ),
               ],
             ),

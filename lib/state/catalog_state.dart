@@ -17,6 +17,9 @@ class CatalogState extends ChangeNotifier {
     loading = true;
     notifyListeners();
     categories = await _repo.fetchCategories();
+    try {
+      await _repo.seedProductsIfEmpty();
+    } catch (_) {/* нет прав на запись — покажем при первой правке */}
     products = await _repo.fetchProducts();
     loading = false;
     _loaded = true;
@@ -30,16 +33,18 @@ class CatalogState extends ChangeNotifier {
 
   Future<void> updateProductPrice(String productId, int price) async {
     final i = products.indexWhere((p) => p.id == productId);
-    if (i != -1) products[i] = products[i].copyWith(price: price);
+    if (i == -1) return;
+    products[i] = products[i].copyWith(price: price);
     notifyListeners();
-    await _repo.updateProductPrice(productId, price);
+    await _repo.saveProduct(products[i]);
   }
 
   Future<void> setProductStock(String productId, bool inStock) async {
     final i = products.indexWhere((p) => p.id == productId);
-    if (i != -1) products[i] = products[i].copyWith(inStock: inStock);
+    if (i == -1) return;
+    products[i] = products[i].copyWith(inStock: inStock);
     notifyListeners();
-    await _repo.setProductInStock(productId, inStock);
+    await _repo.saveProduct(products[i]);
   }
 
   List<Product> get popular => products.where((p) => p.popular).toList();

@@ -33,6 +33,20 @@ class PharmacyRepository {
     }
   }
 
+  List<Product> _mergeProducts(List<Product> remote) {
+    final remoteById = {for (final p in remote) p.id: p};
+    final result = <Product>[];
+    final used = <String>{};
+    for (final m in MockData.products) {
+      result.add(remoteById[m.id] ?? m);
+      used.add(m.id);
+    }
+    for (final r in remote) {
+      if (!used.contains(r.id)) result.add(r);
+    }
+    return result;
+  }
+
   Future<List<Product>> fetchProducts() async {
     if (!_fb) {
       return MockData.products
@@ -42,10 +56,35 @@ class PharmacyRepository {
     try {
       final snap = await _db.collection('products').get();
       if (snap.docs.isEmpty) return MockData.products;
-      return snap.docs.map((d) => Product.fromMap(d.id, d.data())).toList();
+      final remote =
+          snap.docs.map((d) => Product.fromMap(d.id, d.data())).toList();
+      return _mergeProducts(remote);
     } catch (_) {
       return MockData.products;
     }
+  }
+
+  Future<void> saveProduct(Product product) async {
+    if (_fb) {
+      await _db
+          .collection('products')
+          .doc(product.id)
+          .set(product.toMap(), SetOptions(merge: true));
+    } else {
+      _productOverrides[product.id] = product;
+    }
+  }
+
+  /// Засевает каталог в Firestore, если коллекция пуста.
+  Future<void> seedProductsIfEmpty() async {
+    if (!_fb) return;
+    final snap = await _db.collection('products').limit(1).get();
+    if (snap.docs.isNotEmpty) return;
+    final batch = _db.batch();
+    for (final p in MockData.products) {
+      batch.set(_db.collection('products').doc(p.id), p.toMap());
+    }
+    await batch.commit();
   }
 
   Future<void> updateProductPrice(String productId, int price) async {
