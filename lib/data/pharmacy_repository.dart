@@ -50,7 +50,12 @@ class PharmacyRepository {
 
   Future<void> updateProductPrice(String productId, int price) async {
     if (_fb) {
-      await _db.collection('products').doc(productId).update({'price': price});
+      try {
+        await _db
+            .collection('products')
+            .doc(productId)
+            .set({'price': price}, SetOptions(merge: true));
+      } catch (_) {/* офлайн / нет прав — UI уже обновлён оптимистично */}
     } else {
       final base = _productOverrides[productId] ??
           MockData.products.firstWhere((p) => p.id == productId);
@@ -60,10 +65,12 @@ class PharmacyRepository {
 
   Future<void> setProductInStock(String productId, bool inStock) async {
     if (_fb) {
-      await _db
-          .collection('products')
-          .doc(productId)
-          .update({'inStock': inStock});
+      try {
+        await _db
+            .collection('products')
+            .doc(productId)
+            .set({'inStock': inStock}, SetOptions(merge: true));
+      } catch (_) {/* офлайн / нет прав — UI уже обновлён оптимистично */}
     } else {
       final base = _productOverrides[productId] ??
           MockData.products.firstWhere((p) => p.id == productId);

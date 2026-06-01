@@ -29,17 +29,17 @@ class CatalogState extends ChangeNotifier {
   }
 
   Future<void> updateProductPrice(String productId, int price) async {
-    await _repo.updateProductPrice(productId, price);
     final i = products.indexWhere((p) => p.id == productId);
     if (i != -1) products[i] = products[i].copyWith(price: price);
     notifyListeners();
+    await _repo.updateProductPrice(productId, price);
   }
 
   Future<void> setProductStock(String productId, bool inStock) async {
-    await _repo.setProductInStock(productId, inStock);
     final i = products.indexWhere((p) => p.id == productId);
     if (i != -1) products[i] = products[i].copyWith(inStock: inStock);
     notifyListeners();
+    await _repo.setProductInStock(productId, inStock);
   }
 
   List<Product> get popular => products.where((p) => p.popular).toList();
